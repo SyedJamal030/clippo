@@ -1,15 +1,24 @@
 import { useCallback, useState } from "react";
-import { Box, VStack, Heading, Text, Button, Flex } from "@chakra-ui/react";
+import {
+  Box,
+  VStack,
+  Heading,
+  Text,
+  Button,
+  Flex,
+  useToast,
+} from "@chakra-ui/react";
 import { Upload } from "lucide-react";
 
 import { useFFmpeg } from "@/hooks/useFFmpeg";
-import { toaster } from "@/lib/util";
 
 import { DownloadManager, type VideoSegment } from "./DownloadManager";
 import ProcessingProgress from "./ProcessingProgress";
 import VideoUploader from "./VideoUploader";
 import VideoPlayer from "./VideoPlayer";
 import VideoTimeline from "./VideoTimeline";
+
+// const { toast: toaster } = createStandaloneToast({ colorMode: 'light' });
 
 export const VideoTrimmer = () => {
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -18,26 +27,33 @@ export const VideoTrimmer = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(0);
+  const [thumbnails, setThumbnails] = useState<string[]>([]);
   const [processedSegments, setProcessedSegments] = useState<VideoSegment[]>(
     []
   );
 
   const { isLoading, progress, splitVideoForWhatsApp } = useFFmpeg();
 
-  const handleVideoUpload = useCallback((file: File) => {
-    setVideoFile(file);
-    const url = URL.createObjectURL(file);
-    setVideoUrl(url);
-    setCurrentTime(0);
-    setTrimStart(0);
-    setTrimEnd(0);
-    setProcessedSegments([]);
 
-    toaster.create({
-      title: "Video uploaded successfully",
-      description: `${file.name} is ready for editing.`,
-    });
-  }, []);
+  const toaster = useToast();
+
+  const handleVideoUpload = useCallback(
+    (file: File) => {
+      setVideoFile(file);
+      const url = URL.createObjectURL(file);
+      setVideoUrl(url);
+      setCurrentTime(0);
+      setTrimStart(0);
+      setTrimEnd(0);
+      setProcessedSegments([]);
+
+      toaster({
+        title: "Video uploaded successfully",
+        description: `${file.name} is ready for editing.`,
+      });
+    },
+    [toaster]
+  );
 
   const handleDurationChange = useCallback((newDuration: number) => {
     setDuration(newDuration);
@@ -74,7 +90,7 @@ export const VideoTrimmer = () => {
     try {
       const segments = await splitVideoForWhatsApp(
         videoFile,
-        60,
+        90,
         trimStart,
         trimEnd
       );
@@ -84,14 +100,14 @@ export const VideoTrimmer = () => {
           id: `segment-${index + 1}`,
           name: `${videoFile.name.split(".")[0]}_part_${index + 1}.mp4`,
           data,
-          duration: 60, // Each segment is 60 seconds (except possibly the last)
+          duration: 90, // Each segment is 60 seconds (except possibly the last)
           downloaded: false,
         }));
 
         setProcessedSegments(videoSegments);
 
         const selectedDuration = trimEnd - trimStart;
-        toaster.create({
+        toaster({
           title: "Video split successfully",
           description: `Created ${
             segments.length
@@ -102,41 +118,44 @@ export const VideoTrimmer = () => {
       }
     } catch (error) {
       console.error(error);
-      toaster.create({
+      toaster({
         title: "Processing failed",
         description:
           "There was an error splitting your video. Please try again.",
-        type: "error",
+        status: "error",
       });
     }
-  }, [videoFile, splitVideoForWhatsApp, trimStart, trimEnd]);
+  }, [videoFile, splitVideoForWhatsApp, trimStart, trimEnd, toaster]);
 
-  const handleDownload = useCallback((segment: VideoSegment) => {
-    const dataLength = segment.data.byteLength;
-    const newArrayBuffer = new ArrayBuffer(dataLength);
-    const newUint8Array = new Uint8Array(newArrayBuffer);
-    newUint8Array.set(segment.data);
-    const blob = new Blob([newUint8Array], { type: "video/mp4" });
-    const url = URL.createObjectURL(blob);
+  const handleDownload = useCallback(
+    (segment: VideoSegment) => {
+      const dataLength = segment.data.byteLength;
+      const newArrayBuffer = new ArrayBuffer(dataLength);
+      const newUint8Array = new Uint8Array(newArrayBuffer);
+      newUint8Array.set(segment.data);
+      const blob = new Blob([newUint8Array], { type: "video/mp4" });
+      const url = URL.createObjectURL(blob);
 
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = segment.name;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = segment.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
 
-    // Mark as downloaded
-    setProcessedSegments((prev) =>
-      prev.map((s) => (s.id === segment.id ? { ...s, downloaded: true } : s))
-    );
+      // Mark as downloaded
+      setProcessedSegments((prev) =>
+        prev.map((s) => (s.id === segment.id ? { ...s, downloaded: true } : s))
+      );
 
-    toaster.create({
-      title: "Download started",
-      description: `${segment.name} is downloading.`,
-    });
-  }, []);
+      toaster({
+        title: "Download started",
+        description: `${segment.name} is downloading.`,
+      });
+    },
+    [toaster]
+  );
 
   const handleDownloadAll = useCallback(() => {
     processedSegments.forEach((segment) => {
@@ -148,11 +167,11 @@ export const VideoTrimmer = () => {
 
   const handleClearSegments = useCallback(() => {
     setProcessedSegments([]);
-    toaster.create({
+    toaster({
       title: "Downloads cleared",
       description: "All processed videos have been removed.",
     });
-  }, []);
+  }, [toaster]);
 
   const resetApp = useCallback(() => {
     if (videoUrl) {
@@ -170,16 +189,15 @@ export const VideoTrimmer = () => {
   return (
     <VStack
       minH="100vh"
-      bg="gray.900"
-      p="4"
+      p="1"
       gap="6"
-      width="100vw"
       alignItems="center"
       justifyContent="center"
+      align="stretch"
     >
-      <Box maxW="4xl" mx="auto" gap="6">
+      <Box maxW="100%" mx="auto" gap="6">
         {/* Header */}
-        <VStack textAlign="center" gap="4">
+        <VStack textAlign="center" gap="4" marginBlockEnd="7">
           <Heading
             as="h1"
             fontSize="4xl"
@@ -211,8 +229,10 @@ export const VideoTrimmer = () => {
             videoUrl={videoUrl}
             currentTime={currentTime}
             duration={duration}
+            isProcessing={isLoading}
             onTimeUpdate={handleSeek}
             onDurationChange={handleDurationChange}
+            setThumbnails={setThumbnails}
             trimStart={trimStart}
             trimEnd={trimEnd}
           />
@@ -224,7 +244,9 @@ export const VideoTrimmer = () => {
             duration={duration}
             currentTime={currentTime}
             trimStart={trimStart}
+            isProcessing={isLoading}
             trimEnd={trimEnd}
+            thumbnails={thumbnails}
             onTrimStartChange={handleTrimStartChange}
             onTrimEndChange={handleTrimEndChange}
             onSeek={handleSeek}
@@ -245,11 +267,11 @@ export const VideoTrimmer = () => {
 
         {/* Reset Button */}
         {videoFile && (
-          <Flex justifyContent="center">
+          <Flex justifyContent="center" marginBlockStart="8">
             <Button
               onClick={resetApp}
               disabled={isLoading}
-              variant="outline"
+              variant="solid"
               size="lg"
             >
               <Upload /> Upload New Video

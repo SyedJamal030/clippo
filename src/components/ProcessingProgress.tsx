@@ -1,12 +1,4 @@
-import React from "react";
-import {
-  Progress as ChakraProgress,
-  Box,
-  Flex,
-  Text,
-  Heading,
-  VStack,
-} from "@chakra-ui/react";
+import { Progress, Box, Flex, Text, Heading, VStack } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import { Loader2 } from "lucide-react";
 
@@ -27,12 +19,7 @@ export const ProcessingProgress = ({
   if (!isVisible) return null;
 
   return (
-    <Box
-      p={6}
-      bgGradient="linear(to-br, #2a2a2e, #1a1a1e)" // Assuming bg-gradient-video is a dark gradient
-      boxShadow="lg" // Assuming shadow-card is a large shadow
-      borderRadius="md" // Added for a card-like appearance
-    >
+    <Box p={6} marginBlockStart="3" boxShadow="lg" borderRadius="md">
       <VStack gap={4} align="stretch">
         <Flex alignItems="center" gap={3}>
           <Box
@@ -93,26 +80,26 @@ export const ProcessingProgress = ({
 
 export default ProcessingProgress;
 
-interface ProgressProps extends ChakraProgress.RootProps {
-  showValueText?: boolean;
-  valueText?: React.ReactNode;
-  label?: React.ReactNode;
-  info?: React.ReactNode;
-}
+// interface ProgressProps extends ChakraProgress.RootProps {
+//   showValueText?: boolean;
+//   valueText?: React.ReactNode;
+//   label?: React.ReactNode;
+//   info?: React.ReactNode;
+// }
 
-export const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
-  function Progress(props, ref) {
-    const { showValueText, valueText, label, ...rest } = props;
-    return (
-      <ChakraProgress.Root {...rest} ref={ref}>
-        {label && <ChakraProgress.Label>{label}</ChakraProgress.Label>}
-        <ChakraProgress.Track>
-          <ChakraProgress.Range />
-        </ChakraProgress.Track>
-        {showValueText && (
-          <ChakraProgress.ValueText>{valueText}</ChakraProgress.ValueText>
-        )}
-      </ChakraProgress.Root>
-    );
-  }
-);
+// export const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
+//   function Progress(props, ref) {
+//     const { showValueText, valueText, label, ...rest } = props;
+//     return (
+//       <ChakraProgress {...rest} ref={ref}>
+//         {label && <ChakraProgress.Label>{label}</ChakraProgress.Label>}
+//         <ChakraProgress.Track>
+//           <ChakraProgress.Range />
+//         </ChakraProgress.Track>
+//         {showValueText && (
+//           <ChakraProgress.ValueText>{valueText}</ChakraProgress.ValueText>
+//         )}
+//       </ChakraProgress>
+//     );
+//   }
+// );

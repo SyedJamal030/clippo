@@ -269,11 +269,9 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
-import Toaster from "./components/ui/toaster";
 
 const App = () => (
   <BrowserRouter>
-    <Toaster />
     <Routes>
       <Route path="/" element={<Index />} />
       <Route path="*" element={<NotFound />} />

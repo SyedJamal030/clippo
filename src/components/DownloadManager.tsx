@@ -10,6 +10,7 @@ import {
   Card,
   Spinner,
   Icon,
+  CardBody,
 } from "@chakra-ui/react";
 
 import { Check, Download, FileVideo, Trash2 } from "lucide-react";
@@ -71,14 +72,14 @@ export const DownloadManager = ({
   const allDownloaded = segments.every((segment) => segment.downloaded);
 
   return (
-    <Box className="app" p={6} maxW="6xl" mx="auto">
-      <Card.Root
+    <Box className="app" p={6} mx="auto">
+      <Card
         p={6}
         bgGradient="linear(to-br, #2b6cb0, #805ad5)"
         boxShadow="lg"
         color="white"
       >
-        <Card.Body p={0}>
+        <CardBody p={0}>
           <VStack gap={4} align="stretch">
             {/* Header */}
             <Flex alignItems="center" justifyContent="space-between">
@@ -151,7 +152,7 @@ export const DownloadManager = ({
                     </Box>
 
                     <Box flex={1} minW={0}>
-                      <Text fontWeight="medium" truncate>
+                      <Text fontWeight="medium" isTruncated>
                         {segment.name}
                       </Text>
                       <HStack gap={4} fontSize="sm" color="gray.300">
@@ -213,8 +214,8 @@ export const DownloadManager = ({
               </Flex>
             </Box>
           </VStack>
-        </Card.Body>
-      </Card.Root>
+        </CardBody>
+      </Card>
     </Box>
   );
   //   return (

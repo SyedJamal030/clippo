@@ -13,8 +13,10 @@ interface VideoPlayerProps {
   videoUrl: string;
   currentTime: number;
   duration: number;
+  setThumbnails: (thumbnails: string[]) => void;
   onTimeUpdate: (time: number) => void;
   onDurationChange: (duration: number) => void;
+  isProcessing: boolean;
   trimStart: number;
   trimEnd: number;
 }
@@ -23,13 +25,29 @@ export const VideoPlayer = ({
   videoUrl,
   onTimeUpdate,
   onDurationChange,
+  setThumbnails,
+  isProcessing,
+  duration,
   trimStart,
   trimEnd,
 }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+
   const [isLoaded, setIsLoaded] = useState(false);
+  const [processing, setProcessing] = useState(true);
+
+  useEffect(() => {
+    if (duration > 0 && videoRef.current) {
+      generateThumbnails(videoRef.current)
+        .then((urls) => {
+          setThumbnails(urls);
+          onDurationChange(videoRef.current!.duration);
+        })
+        .finally(() => setProcessing(false));
+    }
+  }, [duration, onDurationChange, setThumbnails, videoRef]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -68,13 +86,13 @@ export const VideoPlayer = ({
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !isLoaded) return;
+    if (!video || !isLoaded || processing) return;
 
     // Seek to trim start when trimStart changes
     if (Math.abs(video.currentTime - trimStart) > 0.1) {
       video.currentTime = trimStart;
     }
-  }, [trimStart, isLoaded]);
+  }, [trimStart, isLoaded, processing]);
 
   const togglePlayPause = () => {
     const video = videoRef.current;
@@ -101,13 +119,13 @@ export const VideoPlayer = ({
   };
 
   return (
-    <Card.Root
+    <Card
       overflow="hidden"
       boxShadow="2xl"
-      bgGradient="linear(to-t, #0a0a0a, #333333)" // Adjust to your specific color needs
+      borderBottomRadius="0"
+      bgGradient="linear(to-t, #0a0a0a, #333333)"
     >
       <Box position="relative" role="group">
-        {/* AspectRatio is useful for responsive video sizes, ensuring a consistent aspect ratio */}
         <AspectRatio maxH="96" ratio={16 / 9}>
           <video
             ref={videoRef}
@@ -115,6 +133,7 @@ export const VideoPlayer = ({
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
             style={{ objectFit: "contain", background: "black" }}
+            playsInline
           />
         </AspectRatio>
 
@@ -140,6 +159,7 @@ export const VideoPlayer = ({
             color="white"
             border="0"
             boxShadow="lg"
+            disabled={isProcessing}
             aria-label={isPlaying ? "Pause video" : "Play video"}
           >
             {isPlaying ? (
@@ -148,7 +168,6 @@ export const VideoPlayer = ({
               <Play size={24} style={{ marginLeft: 1 }} />
             )}
           </IconButton>
-
           <IconButton
             size="lg"
             variant="ghost"
@@ -158,6 +177,7 @@ export const VideoPlayer = ({
             color="white"
             border="0"
             boxShadow="lg"
+            disabled={isProcessing}
             aria-label={isMuted ? "Unmute video" : "Mute video"}
           >
             {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
@@ -165,7 +185,7 @@ export const VideoPlayer = ({
         </Box>
 
         {/* Loading indicator */}
-        {!isLoaded && (
+        {(!isLoaded || processing) && (
           <Box
             position="absolute"
             inset="0"
@@ -180,7 +200,7 @@ export const VideoPlayer = ({
           </Box>
         )}
       </Box>
-    </Card.Root>
+    </Card>
     // <Card className="overflow-hidden shadow-video bg-gradient-video">
     //   <div className="relative group">
     //     <video
@@ -236,3 +256,52 @@ export const VideoPlayer = ({
   );
 };
 export default VideoPlayer;
+// A helper function to generate thumbnails from a video element
+const generateThumbnails = async (
+  videoElement: HTMLVideoElement,
+  count = 20
+) => {
+  const thumbnails: string[] = [];
+  if (!videoElement || videoElement.duration === 0) {
+    return [];
+  }
+
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  if (!context) return [];
+
+  // Set canvas dimensions to match a smaller, consistent thumbnail size
+  const thumbnailWidth = 100;
+  const thumbnailHeight = 60;
+  canvas.width = thumbnailWidth;
+  canvas.height = thumbnailHeight;
+
+  // Calculate the time interval for each thumbnail
+  const interval = videoElement.duration / count;
+
+  for (let i = 0; i < count; i++) {
+    const time = i * interval;
+
+    await new Promise((resolve) => {
+      // Set the video's current time to the desired frame
+      videoElement.currentTime = time;
+
+      // Wait for the video frame to be ready
+      const onSeeked = () => {
+        // Draw the frame onto the canvas
+        context.drawImage(videoElement, 0, 0, thumbnailWidth, thumbnailHeight);
+
+        // Get the image data URL and add it to the array
+        thumbnails.push(canvas.toDataURL("image/jpeg"));
+
+        // Clean up the event listener
+        videoElement.removeEventListener("seeked", onSeeked);
+        resolve(thumbnails);
+      };
+
+      videoElement.addEventListener("seeked", onSeeked);
+    });
+  }
+
+  return thumbnails;
+};

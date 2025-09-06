@@ -27,7 +27,15 @@ export const useFFmpeg = () => {
 
       // Set up progress handler
       ffmpeg.on("progress", ({ progress: prog }) => {
-        setProgress((prev) => ({ ...prev, progress: prog * 100 }));
+        console.log("progress =>", prog);
+        if (prog >= 0 && prog <= 1) {
+          console.log("progress =>", prog);
+          setProgress((prev) => ({ ...prev, progress: prog * 100 }));
+        } else {
+          // Optional: Log an error or handle the invalid value gracefully
+          console.warn("Received invalid progress value:", prog);
+          setProgress((prev) => ({ ...prev, progress: 0 }));
+        }
       });
 
       ffmpeg.on("log", ({ message }) => {
@@ -135,8 +143,8 @@ export const useFFmpeg = () => {
   const splitVideoForWhatsApp = useCallback(
     async (
       videoFile: File,
-      segmentDuration: number = 60,
-      startTime: number = 0,
+      segmentDuration = 90,
+      startTime = 0,
       endTime?: number
     ): Promise<Uint8Array[]> => {
       if (!ffmpegRef.current || !isReady) {
@@ -200,14 +208,44 @@ export const useFFmpeg = () => {
             duration.toString(),
             "-c:v",
             "libx264",
+            "-crf",
+            "28",
+            "-s",
+            "1280x720",
             "-c:a",
             "aac",
+            "-b:a",
+            "128k",
             "-preset",
-            "ultrafast",
+            "fast",
             "-movflags",
             "+faststart",
             outputName,
           ]);
+
+          // await ffmpeg.exec([
+          //   "-i",
+          //   inputName,
+          //   "-ss",
+          //   segmentStart.toString(),
+          //   "-t",
+          //   duration.toString(),
+          //   "-c:v",
+          //   "libx264",
+          //   "-crf",
+          //   "30",
+          //   "-preset",
+          //   "veryfast",
+          //   "-s",
+          //   "1280x720",
+          //   "-c:a",
+          //   "aac",
+          //   "-b:a",
+          //   "96k",
+          //   "-movflags",
+          //   "+faststart",
+          //   outputName,
+          // ]);
 
           const data = await ffmpeg.readFile(outputName);
           results.push(data as Uint8Array);

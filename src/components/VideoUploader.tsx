@@ -1,4 +1,11 @@
-import { Box, VStack, Button, Text, Icon } from "@chakra-ui/react";
+import {
+  Box,
+  VStack,
+  Button,
+  Text,
+  Icon,
+  useColorModeValue,
+} from "@chakra-ui/react";
 import { Upload, FileVideo, AlertCircle } from "lucide-react";
 
 import { useCallback, useState } from "react";
@@ -47,20 +54,30 @@ export const VideoUploader = ({
     multiple: false,
     disabled: isProcessing,
   });
+  const bg = useColorModeValue("gray.50", "gray.800");
+  const hoverBorderColor = useColorModeValue("blue.500", "blue.200");
+  const activeBgColor = useColorModeValue("blue.100", "blue.800");
+  const hoverBoxShadow = useColorModeValue(
+    "0 0 10px var(--chakra-colors-blue-500)",
+    "0 0 10px var(--chakra-colors-blue-200)"
+  );
+  const foregroundColor = useColorModeValue("gray.600", "gray.400");
+  const mutedForegroundColor = useColorModeValue("gray.500", "gray.500");
+  const destructiveColor = useColorModeValue("red.500", "red.400");
 
   return (
     <Box
       {...getRootProps()}
-      css={
-        isDragActive
-          ? {
-              bg: "primary.50",
-              boxShadow: "0 0 10px rgba(0, 0, 0, 0.25)",
-            }
-          : undefined
-      }
+      bg={isDragActive ? activeBgColor : bg}
       cursor={isProcessing ? "not-allowed" : "pointer"}
       opacity={isProcessing ? 0.5 : 1}
+      transition="ease-in-out"
+      boxShadow={isDragActive ? hoverBoxShadow : undefined}
+      _hover={{
+        border: "2px dashed",
+        borderColor: hoverBorderColor,
+        boxShadow: hoverBoxShadow,
+      }}
     >
       <input {...getInputProps()} />
       <VStack gap={4} align="center" justify="center" p={12} textAlign="center">
@@ -68,18 +85,18 @@ export const VideoUploader = ({
           <Icon
             as={isDragActive ? FileVideo : Upload}
             boxSize={8}
-            color="primary.foreground"
+            color={foregroundColor}
           />
         </Box>
 
         <VStack gap={2}>
-          <Text fontSize="xl" fontWeight="semibold">
+          <Text fontSize="xl" fontWeight="semibold" color={foregroundColor}>
             {isDragActive ? "Drop your video here" : "Upload your video"}
           </Text>
-          <Text color="muted.foreground">
+          <Text color={mutedForegroundColor}>
             Drag and drop or click to select a video file
           </Text>
-          <Text fontSize="sm" color="muted.foreground">
+          <Text fontSize="sm" color={mutedForegroundColor}>
             Supports MP4, MOV, WebM, AVI, MKV (Max 100MB)
           </Text>
         </VStack>
@@ -95,7 +112,7 @@ export const VideoUploader = ({
             display="flex"
             alignItems="center"
             gap={2}
-            color="destructive.500"
+            color={destructiveColor}
             mt={4}
           >
             <Icon as={AlertCircle} boxSize={4} mr={2} />
