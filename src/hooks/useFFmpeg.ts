@@ -1,279 +1,163 @@
-import { useState, useRef, useCallback } from "react";
-import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { fetchFile, toBlobURL } from "@ffmpeg/util";
+import { useState, useCallback, useRef } from "react";
+import { fetchFile } from "@ffmpeg/util";
+import { getFFmpegInstance, loadFFmpeg } from "../lib/ffmpegService";
 
-export interface ProcessingProgress {
-  progress: number;
-  stage: string;
+export interface SplitResult {
+  name: string;
+  blob: Blob;
 }
 
-export const useFFmpeg = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [progress, setProgress] = useState<ProcessingProgress>({
-    progress: 0,
-    stage: "Initializing...",
-  });
-  const ffmpegRef = useRef<FFmpeg | null>(null);
-  const [isReady, setIsReady] = useState(false);
+export interface UseFFmpegReturn {
+  isLoaded: boolean;
+  isLoading: boolean;
+  progress: number;
+  error: string | null;
+  initFFmpeg: () => Promise<void>;
+  trimVideo: (file: File, startTime: number, endTime: number) => Promise<Blob>;
+  splitVideo: (file: File, segmentDuration?: number) => Promise<SplitResult[]>;
+}
 
-  const loadFFmpeg = useCallback(async () => {
-    if (isReady && ffmpegRef.current) return;
+export function useFFmpeg(): UseFFmpegReturn {
+  const [isLoaded, setIsLoaded] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [progress, setProgress] = useState<number>(0);
+  const [error, setError] = useState<string | null>(null);
+  const ffmpegRef =
+    useRef<ReturnType<typeof getFFmpegInstance>>(getFFmpegInstance());
+
+  const initFFmpeg = useCallback(async (): Promise<void> => {
+    if (ffmpegRef.current.loaded) {
+      setIsLoaded(true);
+      return;
+    }
 
     setIsLoading(true);
-    setProgress({ progress: 0, stage: "Loading FFmpeg..." });
+    setError(null);
 
     try {
-      const ffmpeg = new FFmpeg();
-
-      // Set up progress handler
-      ffmpeg.on("progress", ({ progress: prog }) => {
-        console.log("progress =>", prog);
-        if (prog >= 0 && prog <= 1) {
-          console.log("progress =>", prog);
-          setProgress((prev) => ({ ...prev, progress: prog * 100 }));
-        } else {
-          // Optional: Log an error or handle the invalid value gracefully
-          console.warn("Received invalid progress value:", prog);
-          setProgress((prev) => ({ ...prev, progress: 0 }));
-        }
-      });
-
-      ffmpeg.on("log", ({ message }) => {
-        console.log("FFmpeg log:", message);
-      });
-
-      // Load FFmpeg with CDN URLs
-      const baseURL =
-        "https://cdn.jsdelivr.net/npm/@ffmpeg/core-mt@0.12.10/dist/esm";
-      await ffmpeg.load({
-        coreURL: await toBlobURL(
-          `${baseURL}/ffmpeg-core.js`,
-          "text/javascript"
-        ),
-        wasmURL: await toBlobURL(
-          `${baseURL}/ffmpeg-core.wasm`,
-          "application/wasm"
-        ),
-        workerURL: await toBlobURL(
-          `${baseURL}/ffmpeg-core.worker.js`,
-          "text/javascript"
-        ),
-      });
-
-      ffmpegRef.current = ffmpeg;
-      setIsReady(true);
-      setProgress({ progress: 100, stage: "Ready" });
-    } catch (error) {
-      console.error("Failed to load FFmpeg:", error);
-      setProgress({ progress: 0, stage: "Failed to load FFmpeg" });
+      await loadFFmpeg((prog) => setProgress(prog));
+      setIsLoaded(true);
+    } catch (err) {
+      console.error("Failed to initialize FFmpeg:", err);
+      setError("Failed to load video processing engine.");
     } finally {
       setIsLoading(false);
     }
-  }, [isReady]);
+  }, []);
 
   const trimVideo = useCallback(
-    async (
-      videoFile: File,
-      startTime: number,
-      endTime: number,
-      outputName: string = "output.mp4"
-    ): Promise<Uint8Array | null> => {
-      if (!ffmpegRef.current || !isReady) {
-        await loadFFmpeg();
+    async (file: File, startTime: number, endTime: number): Promise<Blob> => {
+      const ffmpeg = ffmpegRef.current;
+
+      if (!ffmpeg.loaded) {
+        await initFFmpeg();
       }
 
-      if (!ffmpegRef.current) return null;
+      setProgress(0);
 
-      setIsLoading(true);
-      setProgress({ progress: 0, stage: "Preparing video..." });
+      const inputName = "input_video.mp4";
+      const outputName = "output_trimmed.mp4";
 
       try {
-        const ffmpeg = ffmpegRef.current;
+        await ffmpeg.writeFile(inputName, await fetchFile(file));
 
-        // Write input file
-        const inputName = "input.mp4";
-        await ffmpeg.writeFile(inputName, await fetchFile(videoFile));
-
-        setProgress({ progress: 20, stage: "Trimming video..." });
-
-        // Calculate duration
-        const duration = endTime - startTime;
-
-        // Execute FFmpeg command for trimming
         await ffmpeg.exec([
-          "-i",
-          inputName,
           "-ss",
           startTime.toString(),
-          "-t",
-          duration.toString(),
-          "-c:v",
-          "libx264",
-          "-c:a",
-          "aac",
-          "-preset",
-          "ultrafast",
-          "-movflags",
-          "+faststart",
+          "-to",
+          endTime.toString(),
+          "-i",
+          inputName,
+          "-c",
+          "copy",
           outputName,
         ]);
 
-        setProgress({ progress: 90, stage: "Finalizing..." });
+        const data = (await ffmpeg.readFile(outputName)) as Uint8Array;
 
-        // Read output file
-        const data = await ffmpeg.readFile(outputName);
-
-        // Clean up files
         await ffmpeg.deleteFile(inputName);
         await ffmpeg.deleteFile(outputName);
 
-        setProgress({ progress: 100, stage: "Complete" });
-        return data as Uint8Array;
-      } catch (error) {
-        console.error("Video trimming failed:", error);
-        setProgress({ progress: 0, stage: "Processing failed" });
-        return null;
-      } finally {
-        setIsLoading(false);
+        return new Blob([data.buffer as ArrayBuffer], {
+          type: file.type || "video/mp4",
+        });
+      } catch (err) {
+        console.error("Trimming error:", err);
+        throw new Error("Failed to trim video file.");
       }
     },
-    [isReady, loadFFmpeg]
+    [initFFmpeg],
   );
 
-  const splitVideoForWhatsApp = useCallback(
-    async (
-      videoFile: File,
-      segmentDuration = 90,
-      startTime = 0,
-      endTime?: number
-    ): Promise<Uint8Array[]> => {
-      if (!ffmpegRef.current || !isReady) {
-        await loadFFmpeg();
+  const splitVideo = useCallback(
+    async (file: File, segmentDuration = 30): Promise<SplitResult[]> => {
+      const ffmpeg = ffmpegRef.current;
+
+      if (!ffmpeg.loaded) {
+        await initFFmpeg();
       }
 
-      if (!ffmpegRef.current) return [];
+      setProgress(0);
 
-      setIsLoading(true);
-      setProgress({ progress: 0, stage: "Analyzing video..." });
+      const inputName = "input_video.mp4";
+      const outputPattern = "output_%03d.mp4";
 
       try {
-        const ffmpeg = ffmpegRef.current;
+        await ffmpeg.writeFile(inputName, await fetchFile(file));
 
-        // Write input file
-        const inputName = "input.mp4";
-        await ffmpeg.writeFile(inputName, await fetchFile(videoFile));
+        await ffmpeg.exec([
+          "-i",
+          inputName,
+          "-c",
+          "copy",
+          "-map",
+          "0",
+          "-segment_time",
+          segmentDuration.toString(),
+          "-f",
+          "segment",
+          "-reset_timestamps",
+          "1",
+          outputPattern,
+        ]);
 
-        // Get video duration
-        await ffmpeg.exec(["-i", inputName, "-f", "null", "-"]);
+        const files = (await ffmpeg.listDir("/")) as Array<{
+          name: string;
+          isDir: boolean;
+        }>;
+        const segmentFiles = files.filter(
+          (f) => !f.isDir && f.name.startsWith("output_"),
+        );
 
-        // Create a temporary video element to get duration
-        const videoUrl = URL.createObjectURL(videoFile);
-        const video = document.createElement("video");
-        video.src = videoUrl;
+        const results: SplitResult[] = [];
 
-        await new Promise((resolve) => {
-          video.onloadedmetadata = resolve;
-        });
-
-        const totalDuration = video.duration;
-        URL.revokeObjectURL(videoUrl);
-
-        // Use provided range or full video
-        const actualEndTime = endTime || totalDuration;
-        const trimmedDuration = actualEndTime - startTime;
-        const segments = Math.ceil(trimmedDuration / segmentDuration);
-        const results: Uint8Array[] = [];
-
-        for (let i = 0; i < segments; i++) {
-          const segmentStart = startTime + i * segmentDuration;
-          const segmentEnd = Math.min(
-            segmentStart + segmentDuration,
-            actualEndTime
-          );
-          const duration = segmentEnd - segmentStart;
-
-          setProgress({
-            progress: (i / segments) * 100,
-            stage: `Processing segment ${i + 1} of ${segments}...`,
+        for (const seg of segmentFiles) {
+          const data = (await ffmpeg.readFile(seg.name)) as Uint8Array;
+          const blob = new Blob([data.buffer as ArrayBuffer], {
+            type: file.type || "video/mp4",
           });
-
-          const outputName = `segment_${i + 1}.mp4`;
-
-          await ffmpeg.exec([
-            "-i",
-            inputName,
-            "-ss",
-            segmentStart.toString(),
-            "-t",
-            duration.toString(),
-            "-c:v",
-            "libx264",
-            "-crf",
-            "28",
-            "-s",
-            "1280x720",
-            "-c:a",
-            "aac",
-            "-b:a",
-            "128k",
-            "-preset",
-            "fast",
-            "-movflags",
-            "+faststart",
-            outputName,
-          ]);
-
-          // await ffmpeg.exec([
-          //   "-i",
-          //   inputName,
-          //   "-ss",
-          //   segmentStart.toString(),
-          //   "-t",
-          //   duration.toString(),
-          //   "-c:v",
-          //   "libx264",
-          //   "-crf",
-          //   "30",
-          //   "-preset",
-          //   "veryfast",
-          //   "-s",
-          //   "1280x720",
-          //   "-c:a",
-          //   "aac",
-          //   "-b:a",
-          //   "96k",
-          //   "-movflags",
-          //   "+faststart",
-          //   outputName,
-          // ]);
-
-          const data = await ffmpeg.readFile(outputName);
-          results.push(data as Uint8Array);
-
-          await ffmpeg.deleteFile(outputName);
+          results.push({ name: seg.name, blob });
+          await ffmpeg.deleteFile(seg.name);
         }
 
         await ffmpeg.deleteFile(inputName);
-        setProgress({ progress: 100, stage: `Created ${segments} segments` });
 
         return results;
-      } catch (error) {
-        console.error("Video splitting failed:", error);
-        setProgress({ progress: 0, stage: "Processing failed" });
-        return [];
-      } finally {
-        setIsLoading(false);
+      } catch (err) {
+        console.error("Splitting error:", err);
+        throw new Error("Failed to split video file.");
       }
     },
-    [isReady, loadFFmpeg]
+    [initFFmpeg],
   );
 
   return {
+    isLoaded,
     isLoading,
-    isReady,
     progress,
-    loadFFmpeg,
+    error,
+    initFFmpeg,
     trimVideo,
-    splitVideoForWhatsApp,
+    splitVideo,
   };
-};
+}

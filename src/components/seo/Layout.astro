@@ -1,0 +1,82 @@
+---
+interface Props {
+  title?: string;
+  className?: string;
+  description?: string;
+}
+
+const { title, className = "", description } = Astro.props;
+
+import Header from "../Header.astro";
+import Footer from "../Footer.astro";
+
+import ThemeToggle from "../ThemeToggle.astro";
+
+import SEO from "./SEO.astro";
+
+import "../../styles/global.css";
+
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <SEO title={title} description={description} />
+    <script is:inline>
+      const getThemePreference = () => {
+        if (
+          typeof localStorage !== "undefined" &&
+          localStorage.getItem("theme")
+        ) {
+          return localStorage.getItem("theme");
+        }
+        return window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "studioDark"
+          : "studioLight";
+      };
+
+      const applyTheme = (theme) => {
+        const root = document.documentElement;
+        if (theme === "studioDark") {
+          root.classList.add("studioDark");
+        } else {
+          root.classList.remove("studioDark");
+        }
+        root.style.colorScheme = theme;
+        root.setAttribute("data-theme", theme);
+      };
+
+      const setTheme = () => {
+        const theme = getThemePreference();
+        applyTheme(theme);
+      };
+
+      setTheme();
+      document.addEventListener("astro:after-swap", setTheme);
+
+      window
+        .matchMedia("(prefers-color-scheme: dark)")
+        .addEventListener("change", (e) => {
+          const newTheme = e.matches ? "studioDark" : "studioLight";
+          applyTheme(newTheme);
+        });
+
+      window.addEventListener("storage", (e) => {
+        if (e.key === "theme") {
+          setTheme();
+        }
+      });
+    </script>
+  </head>
+  <body class="antialiased min-h-screen flex flex-col">
+    <main>
+      <Header>
+        <div class={className}>
+          <slot />
+        </div>
+      </Header>
+      <Footer />
+    </main>
+    <ThemeToggle />
+  </body>
+</html>

@@ -1,0 +1,22 @@
+---
+import Layout from '@/components/seo/Layout.astro';
+import ToolLayout from '@/components/seo/ToolLayout.astro';
+import VideoTrimmer from '@/components/VideoTrimmer';
+
+const title = 'Free Online Video Trimmer - Cut MP4 & MOV Files Instantly | Clippo';
+const description =
+  'Trim video lengths instantly right inside your browser. 100% free, private, client-side video cutter with zero server uploads or watermarks.';
+---
+
+<Layout title={title} description={description}>
+  <ToolLayout
+    h1="Free Online Video Trimmer & Cutter"
+    h2="Cut, trim, and edit video clips directly in your browser with zero uploads or watermarks."
+  >
+    <VideoTrimmer
+      client:only="react"
+      helperText="Drag and drop your video file here or browse. Processing happens locally on your device for absolute privacy."
+    />
+  </ToolLayout>
+</Layout>
+

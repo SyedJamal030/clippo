@@ -1,0 +1,44 @@
+---
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = "Fast Online Video Trimmer | Free & Secure",
+  description = "Clippo is the fast and easy way to trim videos for Social Media. Get your clips ready to share in seconds.",
+} = Astro.props;
+
+const siteUrl = Astro.site ?? 'http://localhost:4321';
+const canonicalURL = new URL(Astro.url.pathname, siteUrl);
+const currentURL = Astro.url.href;
+---
+
+<meta charset="UTF-8" />
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+/>
+<link rel="canonical" href={canonicalURL} />
+<meta name="generator" content={Astro.generator} />
+<meta name="description" content={description} />
+<link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="shortcut icon" href="/favicon.ico" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-title" content="PQIS" />
+<link rel="manifest" href="/site.webmanifest" />
+<meta property="og:title" content={title} />
+<meta property="og:description" content={description} />
+<meta property="og:image" content="/og-image.webp" />
+<meta property="og:url" content={currentURL} />
+<meta name="twitter:card" content="summary_large_image" />
+<!-- Makes the image big and clickable -->
+<meta name="twitter:title" content={title} />
+<meta name="twitter:description" content={description} />
+<meta name="twitter:image" content="/og-image.webp" />
+<title>{title} | Clippo</title>
+<!-- Core External Fonts & Icons -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

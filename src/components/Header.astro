@@ -1,0 +1,109 @@
+---
+import { MenuIcon, X } from "lucide-react";
+import NavLink from "./NavLink.astro";
+
+export interface NavItem {
+  label: string;
+  href: string;
+}
+
+export const NAV_ITEMS: NavItem[] = [
+  { label: "Video Trimmer", href: "/" },
+  { label: "WhatsApp Story Splitter", href: "/whatsapp-splitter" },
+  { label: "Instagram Story Splitter", href: "/instagram-story-cutter" },
+  { label: "TikTok & Shorts Splitter", href: "/tiktok-video-splitter" },
+];
+---
+
+<div class="drawer">
+  <input id="main-drawer" type="checkbox" class="drawer-toggle" />
+
+  {/* Page Content */}
+  <div class="drawer-content flex min-h-screen flex-col">
+    <header
+      class="navbar sticky top-0 z-30 w-full bg-base-100/80 backdrop-blur border-b border-base-200 px-4"
+    >
+      <div class="flex-none lg:hidden">
+        <label
+          for="main-drawer"
+          aria-label="open sidebar"
+          class="btn btn-circle btn-ghost"
+        >
+          <MenuIcon className="size-6" />
+        </label>
+      </div>
+
+      <div class="flex-1 px-2">
+        <a href="/" class="text-xl font-bold tracking-tight"> Clippo. </a>
+      </div>
+
+      {/* Desktop Navigation */}
+      <div class="flex-none hidden lg:block">
+        <ul class="menu menu-horizontal px-1 gap-1">
+          {
+            NAV_ITEMS.map((item) => (
+              <li>
+                <NavLink href={item.href} class="px-3 py-2">
+                  {item.label}
+                </NavLink>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </header>
+
+    <main class="flex-1">
+      <slot />
+    </main>
+  </div>
+
+  {/* Mobile Drawer */}
+  <div class="drawer-side z-40">
+    <label for="main-drawer" aria-label="close sidebar" class="drawer-overlay"
+    ></label>
+    <div
+      class="menu min-h-full w-80 bg-base-200 p-4 text-base-content flex flex-col justify-between"
+    >
+      <div>
+        <div
+          class="flex items-center justify-between pb-4 mb-2 border-b border-base-300"
+        >
+          <span class="text-xl font-bold">Clippo.</span>
+          <label for="main-drawer" class="btn btn-sm btn-circle btn-ghost">
+            <X className="size-6" />
+          </label>
+        </div>
+
+        <ul class="menu space-y-3 w-full">
+          {
+            NAV_ITEMS.map((item) => (
+              <li>
+                <NavLink
+                  href={item.href}
+                  class="text-base py-2 mobile-drawer-link"
+                >
+                  {item.label}
+                </NavLink>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Close DaisyUI drawer when a link inside mobile drawer is clicked
+  const drawerToggle = document.getElementById(
+    "main-drawer",
+  ) as HTMLInputElement | null;
+  const drawerLinks = document.querySelectorAll(".mobile-drawer-link");
+
+  drawerLinks.forEach((link) => {
+    link.addEventListener("click", () => {
+      if (drawerToggle) drawerToggle.checked = false;
+    });
+  });
+</script>

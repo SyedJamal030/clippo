@@ -1,0 +1,69 @@
+---
+import { NAV_ITEMS } from './Header.astro';
+
+const currentYear = new Date().getFullYear();
+---
+
+<footer class="bg-base-200 text-base-content border-t border-base-300">
+  <!-- Main Footer Content -->
+  <div class="footer max-w-7xl mx-auto px-6 py-12 grid grid-cols-1 md:grid-cols-3 gap-10">
+    <!-- Column 1: About Clippo -->
+    <aside class="flex flex-col space-y-4">
+      <div class="flex items-center gap-2">
+        <span class="text-xl font-bold tracking-tight text-base-content">Clippo</span>
+      </div>
+      <p class="text-sm text-base-content/70 leading-relaxed max-w-sm">
+        Clippo is a 100% free, privacy-first browser tool powered by WebAssembly. Trim and split
+        your videos for social media instantly without server uploads.
+      </p>
+    </aside>
+
+    <!-- Column 2: Quick Links -->
+    <nav class="flex flex-col space-y-2">
+      <h6
+        class="footer-title text-base-content font-bold uppercase tracking-wider text-xs opacity-80"
+      >
+        Quick Links
+      </h6>
+      {
+        NAV_ITEMS.map((n) => (
+          <a
+            href={n.href}
+            class="link link-hover text-sm text-base-content/70 hover:text-primary transition-colors"
+          >
+            {n.label}
+          </a>
+        ))
+      }
+    </nav>
+
+    <!-- Column 3: Legal & Support -->
+    <nav class="flex flex-col space-y-2">
+      <h6
+        class="footer-title text-base-content font-bold uppercase tracking-wider text-xs opacity-80"
+      >
+        Legal & Support (Coming Soon)
+      </h6>
+      <span class="text-sm text-base-content/55 cursor-not-allowed">Privacy Policy</span>
+      <span class="text-sm text-base-content/55 cursor-not-allowed">Terms & Conditions</span>
+      <a
+        href="mailto:syed.jamal.waheed@gmail.com"
+        class="link link-hover text-sm text-base-content/70 hover:text-primary transition-colors"
+        >Contact Support</a
+      >
+    </nav>
+  </div>
+
+  <!-- Bottom Bar / Copyright Area -->
+  <div
+    class="bg-base-300 text-base-content/80 text-xs px-6 py-4 text-center border-t border-base-300"
+  >
+    <p>
+      © {currentYear} Clippo. Created with ❤️ by <a
+        href="https://syedjamal030.github.io/"
+        class="link hover:text-primary transition-colors"
+        >Syed Jamal.</a
+      > All rights reserved.
+    </p>
+  </div>
+</footer>

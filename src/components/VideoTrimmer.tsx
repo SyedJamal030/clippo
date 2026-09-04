@@ -1,361 +1,280 @@
-import { useCallback, useState } from "react";
-import {
-  Box,
-  VStack,
-  Heading,
-  Text,
-  Button,
-  Flex,
-  useToast,
-} from "@chakra-ui/react";
-import { Upload } from "lucide-react";
+import { useState, useRef, useCallback, Fragment } from 'react';
 
-import { useFFmpeg } from "@/hooks/useFFmpeg";
+import { useFFmpeg, type SplitResult } from '../hooks/useFFmpeg';
 
-import { DownloadManager, type VideoSegment } from "./DownloadManager";
-import ProcessingProgress from "./ProcessingProgress";
-import VideoUploader from "./VideoUploader";
-import VideoPlayer from "./VideoPlayer";
-import VideoTimeline from "./VideoTimeline";
+import FileUploader from './file/FileUploader';
+import VideoPlayer, { type VideoPlayerHandle } from './player/VideoPlayer';
+import TimelineSelector from './player/TimelineSelector';
+import TimeInputs from './player/TimeInputs';
+import { formatTime } from './player/util/time';
+import { ReplaceIcon } from 'lucide-react';
+import { revokeUrl } from './file/util/uploader';
 
-// const { toast: toaster } = createStandaloneToast({ colorMode: 'light' });
+import Success from './Success';
 
-export const VideoTrimmer = () => {
-  const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [videoUrl, setVideoUrl] = useState<string>("");
-  const [duration, setDuration] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [trimStart, setTrimStart] = useState(0);
-  const [trimEnd, setTrimEnd] = useState(0);
-  const [thumbnails, setThumbnails] = useState<string[]>([]);
-  const [processedSegments, setProcessedSegments] = useState<VideoSegment[]>(
-    []
-  );
+export type Mode = 'trim' | 'split';
 
-  const { isLoading, progress, splitVideoForWhatsApp } = useFFmpeg();
+interface Props {
+  mode?: Mode;
+  segmentDuration?: number;
+  helperText?: string
+}
 
+export default function VideoTrimmer({ mode = 'trim', segmentDuration = 30 }: Props) {
+  const [file, setFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string[]>([]);
+  const [videoSrc, setVideoSrc] = useState<string | null>(null);
+  const [duration, setDuration] = useState<number>(0);
+  const [startTime, setStartTime] = useState<number>(0);
+  const [endTime, setEndTime] = useState<number>(0);
+  const [currentTime, setCurrentTime] = useState<number>(0);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [isVideoTrimmedSuccessfully, setIsVideoTrimmedSuccessfully] = useState<boolean>(false);
+  const [splitResults, setSplitResults] = useState<SplitResult[]>([]);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
-  const toaster = useToast();
+  const playerRef = useRef<VideoPlayerHandle>(null);
+  const { isLoaded, isLoading, progress, error, initFFmpeg, trimVideo, splitVideo } = useFFmpeg();
 
-  const handleVideoUpload = useCallback(
-    (file: File) => {
-      setVideoFile(file);
-      const url = URL.createObjectURL(file);
-      setVideoUrl(url);
-      setCurrentTime(0);
-      setTrimStart(0);
-      setTrimEnd(0);
-      setProcessedSegments([]);
-
-      toaster({
-        title: "Video uploaded successfully",
-        description: `${file.name} is ready for editing.`,
-      });
-    },
-    [toaster]
-  );
-
-  const handleDurationChange = useCallback((newDuration: number) => {
-    setDuration(newDuration);
-    setTrimEnd(newDuration);
+  // Soft Reset: Clears export result states (Back to Editor)
+  const softReset = useCallback(() => {
+    setDownloadUrl((prev) => {
+      revokeUrl(prev);
+      return null;
+    });
+    setIsProcessing(false);
+    setIsVideoTrimmedSuccessfully(false);
+    setSplitResults([]);
   }, []);
 
-  const handleSeek = useCallback((time: number) => {
+  // Full Reset: Wipes video, file, and player states completely
+  const fullReset = useCallback(() => {
+    softReset();
+    setVideoSrc((prev) => {
+      revokeUrl(prev);
+      return null;
+    });
+    setFile(null);
+    setFileError([]);
+    setDuration(0);
+    setStartTime(0);
+    setEndTime(0);
+    setCurrentTime(0);
+  }, [softReset]);
+
+  const handleFileChange = useCallback(
+    (files: File[]) => {
+      setFileError([]);
+      fullReset();
+
+      const [selectedFile] = files;
+      if (!selectedFile) {
+        return;
+      }
+
+      setFile(selectedFile);
+      const url = URL.createObjectURL(selectedFile);
+      setVideoSrc(url);
+
+      if (!isLoaded) {
+        initFFmpeg().catch(() => {
+          setFileError(['Failed to initialize video processor.']);
+          fullReset();
+        });
+      }
+    },
+    [fullReset, initFFmpeg, isLoaded],
+  );
+
+  const handleRangeChange = useCallback(
+    (start: number, end: number): void => {
+      setStartTime(start);
+      setEndTime(end);
+      if (currentTime < start || currentTime > end) {
+        playerRef.current?.seekTo(start);
+        setCurrentTime(start);
+      }
+    },
+    [currentTime],
+  );
+
+  const processVideoFile = useCallback(async () => {
+    if (!file) {
+      throw new Error('Unable to read selected video file.');
+    }
+
+    if (mode === 'trim') {
+      const trimmedBlob = await trimVideo(file, startTime, endTime);
+      const url = URL.createObjectURL(trimmedBlob);
+      setDownloadUrl(url);
+    } else {
+      const isFullRange = startTime === 0 && endTime === duration;
+
+      let targetFile: File = file;
+      if (!isFullRange) {
+        const trimmedBlob = await trimVideo(file, startTime, endTime);
+        targetFile = new File([trimmedBlob], file.name, {
+          type: trimmedBlob.type || file.type,
+          lastModified: Date.now(),
+        });
+      }
+
+      const results = await splitVideo(targetFile, segmentDuration);
+      setSplitResults(results);
+    }
+  }, [duration, endTime, file, mode, segmentDuration, splitVideo, startTime, trimVideo]);
+
+  const handleProcess = useCallback(() => {
+    softReset();
+    setIsProcessing(true);
+
+    processVideoFile()
+      .then(() => setIsVideoTrimmedSuccessfully(true))
+      .catch((err) => {
+        console.error(err);
+        alert('Error processing video file.');
+        setIsVideoTrimmedSuccessfully(false);
+      })
+      .finally(() => setIsProcessing(false));
+  }, [processVideoFile, softReset]);
+
+  const handleLoadedMetadata = useCallback((metaDuration: number) => {
+    setDuration(metaDuration);
+    setStartTime(0);
+    setEndTime(metaDuration);
+    setCurrentTime(0);
+  }, []);
+
+  const handleScrub = useCallback((time: number) => {
+    playerRef.current?.pause();
+    playerRef.current?.seekTo(time);
     setCurrentTime(time);
   }, []);
 
-  const handleTrimStartChange = useCallback(
-    (time: number) => {
-      setTrimStart(time);
-      if (currentTime < time) {
-        setCurrentTime(time);
-      }
-    },
-    [currentTime]
-  );
-
-  const handleTrimEndChange = useCallback(
-    (time: number) => {
-      setTrimEnd(time);
-      if (currentTime > time) {
-        setCurrentTime(time);
-      }
-    },
-    [currentTime]
-  );
-
-  const handleWhatsAppTrim = useCallback(async () => {
-    if (!videoFile) return;
-
-    try {
-      const segments = await splitVideoForWhatsApp(
-        videoFile,
-        90,
-        trimStart,
-        trimEnd
-      );
-
-      if (segments.length > 0) {
-        const videoSegments: VideoSegment[] = segments.map((data, index) => ({
-          id: `segment-${index + 1}`,
-          name: `${videoFile.name.split(".")[0]}_part_${index + 1}.mp4`,
-          data,
-          duration: 90, // Each segment is 60 seconds (except possibly the last)
-          downloaded: false,
-        }));
-
-        setProcessedSegments(videoSegments);
-
-        const selectedDuration = trimEnd - trimStart;
-        toaster({
-          title: "Video split successfully",
-          description: `Created ${
-            segments.length
-          } WhatsApp-ready segments from ${Math.round(
-            selectedDuration
-          )}s selection.`,
-        });
-      }
-    } catch (error) {
-      console.error(error);
-      toaster({
-        title: "Processing failed",
-        description:
-          "There was an error splitting your video. Please try again.",
-        status: "error",
-      });
-    }
-  }, [videoFile, splitVideoForWhatsApp, trimStart, trimEnd, toaster]);
-
-  const handleDownload = useCallback(
-    (segment: VideoSegment) => {
-      const dataLength = segment.data.byteLength;
-      const newArrayBuffer = new ArrayBuffer(dataLength);
-      const newUint8Array = new Uint8Array(newArrayBuffer);
-      newUint8Array.set(segment.data);
-      const blob = new Blob([newUint8Array], { type: "video/mp4" });
-      const url = URL.createObjectURL(blob);
-
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = segment.name;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      // Mark as downloaded
-      setProcessedSegments((prev) =>
-        prev.map((s) => (s.id === segment.id ? { ...s, downloaded: true } : s))
-      );
-
-      toaster({
-        title: "Download started",
-        description: `${segment.name} is downloading.`,
-      });
-    },
-    [toaster]
-  );
-
-  const handleDownloadAll = useCallback(() => {
-    processedSegments.forEach((segment) => {
-      if (!segment.downloaded) {
-        setTimeout(() => handleDownload(segment), 100);
-      }
-    });
-  }, [processedSegments, handleDownload]);
-
-  const handleClearSegments = useCallback(() => {
-    setProcessedSegments([]);
-    toaster({
-      title: "Downloads cleared",
-      description: "All processed videos have been removed.",
-    });
-  }, [toaster]);
-
-  const resetApp = useCallback(() => {
-    if (videoUrl) {
-      URL.revokeObjectURL(videoUrl);
-    }
-    setVideoFile(null);
-    setVideoUrl("");
-    setDuration(0);
-    setCurrentTime(0);
-    setTrimStart(0);
-    setTrimEnd(0);
-    setProcessedSegments([]);
-  }, [videoUrl]);
+  const selectedDuration = Math.max(0, endTime - startTime);
+  const totalParts = Math.ceil(selectedDuration / (segmentDuration || 1));
 
   return (
-    <VStack
-      minH="100vh"
-      p="1"
-      gap="6"
-      alignItems="center"
-      justifyContent="center"
-      align="stretch"
-    >
-      <Box maxW="100%" mx="auto" gap="6">
-        {/* Header */}
-        <VStack textAlign="center" gap="4" marginBlockEnd="7">
-          <Heading
-            as="h1"
-            fontSize="4xl"
-            fontWeight="bold"
-            bgGradient="linear(to-r, teal.500, blue.500)" // Replaces bg-gradient-primary
-            bgClip="text"
-            color="transparent"
-          >
-            Video Trimmer & WhatsApp Splitter
-          </Heading>
-          <Text fontSize="lg" color="gray.500" maxW="2xl" mx="auto">
-            Upload your video, trim it to perfection, and split it into
-            WhatsApp-ready 60-second segments. Professional video editing made
-            simple.
-          </Text>
-        </VStack>
-
-        {/* Upload Section */}
-        {!videoFile && (
-          <VideoUploader
-            onVideoUpload={handleVideoUpload}
-            isProcessing={isLoading}
+    <section className="text-gray-600 body-font">
+      <div className="max-w-4xl px-5 py-10 mx-auto flex flex-wrap">
+        <div className={`mb-3 w-full space-y-3 ${isVideoTrimmedSuccessfully ? 'hidden' : ''}`}>
+          <FileUploader
+            onError={setFileError}
+            onFilesChange={handleFileChange}
+            maxSizeBytes={100 * 1024 * 1024}
+            removeText={
+              <span title="Replace Video">
+                <ReplaceIcon className="size-3 sm:hidden" />
+                <span className="max-sm:hidden">Replace Video</span>
+              </span>
+            }
+            accept="video/*"
           />
-        )}
+          {isLoading && (
+            <div className="p-3 bg-blue-900/40 border border-blue-700 text-blue-300 rounded text-sm text-center">
+              Loading WebAssembly engine... ({progress}%)
+            </div>
+          )}
 
-        {/* Video Player */}
-        {videoFile && videoUrl && (
-          <VideoPlayer
-            videoUrl={videoUrl}
-            currentTime={currentTime}
+          {(error ?? (fileError && fileError.length > 0)) && (
+            <div className="p-3 bg-red-900/40 border border-red-700 text-red-300 rounded text-sm text-center">
+              {error ?? fileError}
+            </div>
+          )}
+        </div>
+
+        <div
+          className={`flex flex-col items-center justify-center w-full mx-auto ${isVideoTrimmedSuccessfully ? 'hidden' : ''}`}
+        >
+          {videoSrc && (
+            <Fragment>
+              <VideoPlayer
+                ref={playerRef}
+                src={videoSrc}
+                startTime={startTime}
+                endTime={endTime}
+                duration={duration}
+                onTimeUpdate={setCurrentTime}
+                onLoadedMetadata={handleLoadedMetadata}
+              />
+              {duration > 0 && (
+                <div className="flex flex-col w-full gap-3">
+                  <TimelineSelector
+                    videoFile={file}
+                    videoUrl={videoSrc}
+                    duration={duration}
+                    startTime={startTime}
+                    endTime={endTime}
+                    currentTime={currentTime}
+                    onChange={handleRangeChange}
+                    onScrub={handleScrub}
+                  />
+
+                  <TimeInputs
+                    startTime={startTime}
+                    endTime={endTime}
+                    duration={duration}
+                    onChange={handleRangeChange}
+                  />
+
+                  {mode === 'split' && (
+                    <div className="p-3.5 sm:p-4 rounded-xl bg-base-200 border border-base-content/15 space-y-3 transition-all">
+                      {/* Header & Calculated Output Badge */}
+                      <div className="flex items-center justify-between">
+                        <label className="font-bold text-xs uppercase tracking-wider text-base-content/70">
+                          Segment Duration
+                        </label>
+                        <div className="badge badge-sm bg-primary/15 text-primary border-primary/20 font-mono font-bold">
+                          {totalParts} {totalParts === 1 ? 'Part' : 'Parts'}
+                        </div>
+                      </div>
+
+                      {/* Helper Summary */}
+                      <p className="text-xs text-base-content/60 leading-relaxed">
+                        Splits your{' '}
+                        <span className="font-mono font-bold text-base-content">
+                          {formatTime(selectedDuration, selectedDuration >= 3600).split('.')[0]}
+                        </span>{' '}
+                        selected range into{' '}
+                        <span className="font-mono font-bold text-base-content">
+                          {totalParts} downloadable clip
+                          {totalParts === 1 ? '' : 's'}
+                        </span>{' '}
+                        without re-encoding.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <button
+                onClick={handleProcess}
+                disabled={isProcessing || !isLoaded}
+                className="btn btn-success mx-auto md:btn-wide max-md:btn-block mt-4"
+              >
+                {isProcessing
+                  ? `Processing Clips... (${progress}%)`
+                  : mode === 'trim'
+                    ? 'Trim Video Clip'
+                    : `Split into ${segmentDuration}s Clips`}
+              </button>
+            </Fragment>
+          )}
+        </div>
+        {isVideoTrimmedSuccessfully && (
+          <Success
+            endTime={endTime}
+            file={file}
+            mode={mode}
+            onBackToEditor={softReset}
+            segmentDuration={segmentDuration}
+            splitResults={splitResults}
+            startTime={startTime}
+            downloadUrl={downloadUrl}
             duration={duration}
-            isProcessing={isLoading}
-            onTimeUpdate={handleSeek}
-            onDurationChange={handleDurationChange}
-            setThumbnails={setThumbnails}
-            trimStart={trimStart}
-            trimEnd={trimEnd}
           />
         )}
-
-        {/* Timeline */}
-        {videoFile && duration > 0 && (
-          <VideoTimeline
-            duration={duration}
-            currentTime={currentTime}
-            trimStart={trimStart}
-            isProcessing={isLoading}
-            trimEnd={trimEnd}
-            thumbnails={thumbnails}
-            onTrimStartChange={handleTrimStartChange}
-            onTrimEndChange={handleTrimEndChange}
-            onSeek={handleSeek}
-            onWhatsAppTrim={handleWhatsAppTrim}
-          />
-        )}
-
-        {/* Processing Progress */}
-        <ProcessingProgress progress={progress} isVisible={isLoading} />
-
-        {/* Download Manager */}
-        <DownloadManager
-          segments={processedSegments}
-          onDownload={handleDownload}
-          onDownloadAll={handleDownloadAll}
-          onClear={handleClearSegments}
-        />
-
-        {/* Reset Button */}
-        {videoFile && (
-          <Flex justifyContent="center" marginBlockStart="8">
-            <Button
-              onClick={resetApp}
-              disabled={isLoading}
-              variant="solid"
-              size="lg"
-            >
-              <Upload /> Upload New Video
-            </Button>
-          </Flex>
-        )}
-      </Box>
-    </VStack>
-    // <div className="min-h-screen bg-background p-4 space-y-6">
-    //   <div className="max-w-4xl mx-auto space-y-6">
-    //     {/* Header */}
-    //     <div className="text-center space-y-4">
-    //       <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-    //         Video Trimmer & WhatsApp Splitter
-    //       </h1>
-    //       <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-    //         Upload your video, trim it to perfection, and split it into
-    //         WhatsApp-ready 60-second segments. Professional video editing made
-    //         simple.
-    //       </p>
-    //     </div>
-
-    //     {/* Upload Section */}
-    //     {!videoFile && (
-    //       <VideoUploader
-    //         onVideoUpload={handleVideoUpload}
-    //         isProcessing={isLoading}
-    //       />
-    //     )}
-
-    //     {/* Video Player */}
-    //     {videoFile && videoUrl && (
-    //       <VideoPlayer
-    //         videoUrl={videoUrl}
-    //         currentTime={currentTime}
-    //         duration={duration}
-    //         onTimeUpdate={handleSeek}
-    //         onDurationChange={handleDurationChange}
-    //         trimStart={trimStart}
-    //         trimEnd={trimEnd}
-    //       />
-    //     )}
-
-    //     {/* Timeline */}
-    //     {videoFile && duration > 0 && (
-    //       <VideoTimeline
-    //         duration={duration}
-    //         currentTime={currentTime}
-    //         trimStart={trimStart}
-    //         trimEnd={trimEnd}
-    //         onTrimStartChange={handleTrimStartChange}
-    //         onTrimEndChange={handleTrimEndChange}
-    //         onSeek={handleSeek}
-    //         onWhatsAppTrim={handleWhatsAppTrim}
-    //       />
-    //     )}
-
-    //     {/* Processing Progress */}
-    //     <ProcessingProgress progress={progress} isVisible={isLoading} />
-
-    //     {/* Download Manager */}
-    //     <DownloadManager
-    //       segments={processedSegments}
-    //       onDownload={handleDownload}
-    //       onDownloadAll={handleDownloadAll}
-    //       onClear={handleClearSegments}
-    //     />
-
-    //     {/* Reset Button */}
-    //     {videoFile && (
-    //       <div className="flex justify-center">
-    //         <Button
-    //           onClick={resetApp}
-    //           disabled={isLoading}
-    //           variant="outline"
-    //           size="lg"
-    //         >
-    //           <Upload />
-    //           Upload New Video
-    //         </Button>
-    //       </div>
-    //     )}
-    //   </div>
-    // </div>
+      </div>
+    </section>
   );
-};
-export default VideoTrimmer;
+}

@@ -1,0 +1,23 @@
+---
+import ToolLayout from '@/components/seo/ToolLayout.astro';
+import Layout from '../components/seo/Layout.astro';
+import VideoTrimmer from '../components/VideoTrimmer';
+
+const title = 'TikTok Video Splitter - Cut Long Videos into Parts | Clippo';
+const description =
+  'Split long-form videos into multi-part clips for TikTok and YouTube Shorts. Fast browser-based splitting with zero cloud uploads.';
+---
+
+<Layout title={title} description={description}>
+  <ToolLayout
+    h1="TikTok & YouTube Shorts Video Splitter"
+    h2="Divide longer recordings into sequential parts for multi-part TikTok uploads and YouTube Shorts."
+  >
+    <VideoTrimmer
+      mode="split"
+      client:only="react"
+      segmentDuration={60}
+      helperText="Drop your video here to slice it into optimal time frames for multi-part uploads."
+    />
+  </ToolLayout>
+</Layout>

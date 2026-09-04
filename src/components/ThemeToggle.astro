@@ -1,0 +1,71 @@
+<button
+  id="theme-toggle"
+  class="fixed bottom-4 right-4 z-50 btn btn-circle btn-neutral dark:!btn-primary"
+  aria-label="Toggle Theme"
+>
+  <svg
+    id="sun-icon"
+    class="size-4 hidden dark:block"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+    ><path
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-width="2"
+      d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+    ></path></svg
+  >
+  <svg
+    id="moon-icon"
+    class="size-4 block dark:hidden"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+    ><path
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-width="2"
+      d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+    ></path></svg
+  >
+</button>
+
+<style>
+  :global(.black) #sun-icon {
+    display: block;
+  }
+  :global(.black) #moon-icon {
+    display: none;
+  }
+  :global(html:not(.black)) #sun-icon {
+    display: none;
+  }
+  :global(html:not(.black)) #moon-icon {
+    display: block;
+  }
+</style>
+
+<script>
+  const initToggle = () => {
+    const btn = document.getElementById("theme-toggle");
+
+    btn?.addEventListener("click", () => {
+      const isDark = document.documentElement.classList.contains("studioDark");
+      const newTheme = isDark ? "studioLight" : "studioDark";
+
+      // Update storage
+      localStorage.setItem("theme", newTheme);
+
+      // Call the global function from your is:inline script
+      // @ts-ignore
+      if (typeof applyTheme === "function") {
+        // @ts-ignore
+        applyTheme(newTheme);
+      }
+    });
+  };
+
+  initToggle();
+  document.addEventListener("astro:after-swap", initToggle);
+</script>
