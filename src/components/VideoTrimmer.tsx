@@ -7,7 +7,7 @@ import VideoPlayer, { type VideoPlayerHandle } from './player/VideoPlayer';
 import TimelineSelector from './player/TimelineSelector';
 import TimeInputs from './player/TimeInputs';
 import { formatTime } from './player/util/time';
-import { ReplaceIcon } from 'lucide-react';
+import { FileExclamationPointIcon, ReplaceIcon } from 'lucide-react';
 import { revokeUrl } from './file/util/uploader';
 
 import Success from './Success';
@@ -17,7 +17,7 @@ export type Mode = 'trim' | 'split';
 interface Props {
   mode?: Mode;
   segmentDuration?: number;
-  helperText?: string
+  helperText?: string;
 }
 
 export default function VideoTrimmer({ mode = 'trim', segmentDuration = 30 }: Props) {
@@ -156,7 +156,7 @@ export default function VideoTrimmer({ mode = 'trim', segmentDuration = 30 }: Pr
 
   return (
     <section className="text-gray-600 body-font">
-      <div className="max-w-4xl px-5 py-10 mx-auto flex flex-wrap">
+      <div className="max-w-4xl px-5 py-10 mx-auto">
         <div className={`mb-3 w-full space-y-3 ${isVideoTrimmedSuccessfully ? 'hidden' : ''}`}>
           <FileUploader
             onError={setFileError}
@@ -171,14 +171,16 @@ export default function VideoTrimmer({ mode = 'trim', segmentDuration = 30 }: Pr
             accept="video/*"
           />
           {isLoading && (
-            <div className="p-3 bg-blue-900/40 border border-blue-700 text-blue-300 rounded text-sm text-center">
-              Loading WebAssembly engine... ({progress}%)
+            <div role="alert" className="alert alert-info alert-soft">
+              <span className="loading loading-spinner"></span>
+              <span>Loading WebAssembly engine... ({progress}%)</span>
             </div>
           )}
 
           {(error ?? (fileError && fileError.length > 0)) && (
-            <div className="p-3 bg-red-900/40 border border-red-700 text-red-300 rounded text-sm text-center">
-              {error ?? fileError}
+            <div role="alert" className="alert alert-error alert-soft">
+              <FileExclamationPointIcon className="size-6" />
+              <span>{error ?? fileError}</span>
             </div>
           )}
         </div>
