@@ -1,6 +1,6 @@
 ---
-import { MenuIcon, X } from "lucide-react";
-import NavLink from "./NavLink.astro";
+import { MenuIcon, X, Sun, Moon } from 'lucide-react';
+import NavLink from './NavLink.astro';
 
 export interface NavItem {
   label: string;
@@ -8,10 +8,10 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { label: "Video Trimmer", href: "/" },
-  { label: "WhatsApp Story Splitter", href: "/whatsapp-splitter" },
-  { label: "Instagram Story Splitter", href: "/instagram-story-cutter" },
-  { label: "TikTok & Shorts Splitter", href: "/tiktok-video-splitter" },
+  { label: 'Video Trimmer', href: '/' },
+  { label: 'WhatsApp Story Splitter', href: '/whatsapp-splitter' },
+  { label: 'Instagram Story Splitter', href: '/instagram-story-cutter' },
+  { label: 'TikTok & Shorts Splitter', href: '/tiktok-video-splitter' },
 ];
 ---
 
@@ -24,11 +24,7 @@ export const NAV_ITEMS: NavItem[] = [
       class="navbar sticky top-0 z-30 w-full bg-base-100/80 backdrop-blur border-b border-base-200 px-4"
     >
       <div class="flex-none lg:hidden">
-        <label
-          for="main-drawer"
-          aria-label="open sidebar"
-          class="btn btn-circle btn-ghost"
-        >
+        <label for="main-drawer" aria-label="open sidebar" class="btn btn-circle btn-ghost">
           <MenuIcon className="size-6" />
         </label>
       </div>
@@ -37,9 +33,9 @@ export const NAV_ITEMS: NavItem[] = [
         <a href="/" class="text-xl font-bold tracking-tight"> Clippo. </a>
       </div>
 
-      {/* Desktop Navigation */}
-      <div class="flex-none hidden lg:block">
-        <ul class="menu menu-horizontal px-1 gap-1">
+      {/* Desktop Navigation & Actions */}
+      <div class="flex-none flex items-center gap-2">
+        <ul class="menu hidden lg:inline-flex menu-horizontal px-1 gap-1">
           {
             NAV_ITEMS.map((item) => (
               <li>
@@ -50,6 +46,21 @@ export const NAV_ITEMS: NavItem[] = [
             ))
           }
         </ul>
+
+        {/* Divider */}
+        <div class="hidden lg:flex divider h-6 my-auto mx-0 divider-horizontal" />
+
+        {/* Theme Toggle Button */}
+        <button
+          id="theme-toggle"
+          class="btn btn-circle btn-sm btn-primary btn-soft swap swap-rotate"
+          aria-label="Toggle Theme"
+        >
+          <input type="checkbox" id="theme-checkbox" class="pointer-events-none" />
+
+          <Sun className="size-4 swap-on" />
+          <Moon className="swap-off size-4" />
+        </button>
       </div>
     </header>
 
@@ -60,29 +71,22 @@ export const NAV_ITEMS: NavItem[] = [
 
   {/* Mobile Drawer */}
   <div class="drawer-side z-40">
-    <label for="main-drawer" aria-label="close sidebar" class="drawer-overlay"
-    ></label>
+    <label for="main-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
     <div
       class="menu min-h-full w-80 bg-base-200 p-4 text-base-content flex flex-col justify-between"
     >
       <div>
-        <div
-          class="flex items-center justify-between pb-4 mb-2 border-b border-base-300"
-        >
+        <div class="flex items-center justify-between pb-4 mb-2 border-b border-base-300">
           <span class="text-xl font-bold">Clippo.</span>
           <label for="main-drawer" class="btn btn-sm btn-circle btn-ghost">
             <X className="size-6" />
           </label>
         </div>
-
         <ul class="menu space-y-3 w-full">
           {
             NAV_ITEMS.map((item) => (
               <li>
-                <NavLink
-                  href={item.href}
-                  class="text-base py-2 mobile-drawer-link"
-                >
+                <NavLink href={item.href} class="text-base py-2 mobile-drawer-link">
                   {item.label}
                 </NavLink>
               </li>
@@ -96,14 +100,38 @@ export const NAV_ITEMS: NavItem[] = [
 
 <script>
   // Close DaisyUI drawer when a link inside mobile drawer is clicked
-  const drawerToggle = document.getElementById(
-    "main-drawer",
-  ) as HTMLInputElement | null;
-  const drawerLinks = document.querySelectorAll(".mobile-drawer-link");
+  const drawerToggle = document.getElementById('main-drawer') as HTMLInputElement | null;
+  const drawerLinks = document.querySelectorAll('.mobile-drawer-link');
 
   drawerLinks.forEach((link) => {
-    link.addEventListener("click", () => {
+    link.addEventListener('click', () => {
       if (drawerToggle) drawerToggle.checked = false;
     });
   });
+
+  const initToggle = () => {
+    const btn = document.getElementById('theme-toggle');
+    const checkbox = document.getElementById('theme-checkbox') as HTMLInputElement;
+
+    // Sync checkbox state on load based on active attribute
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    if (checkbox) {
+      checkbox.checked = currentTheme === 'studioDark';
+    }
+
+    btn?.addEventListener('click', () => {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'studioDark';
+      const newTheme = isDark ? 'studioLight' : 'studioDark';
+
+      localStorage.setItem('theme', newTheme);
+      document.documentElement.setAttribute('data-theme', newTheme);
+
+      if (checkbox) {
+        checkbox.checked = !isDark;
+      }
+    });
+  };
+
+  initToggle();
+  document.addEventListener('astro:after-swap', initToggle);
 </script>

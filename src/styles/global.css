@@ -1,17 +1,21 @@
-@import "tailwindcss";
-@plugin "daisyui";
+@import 'tailwindcss';
+
+@plugin "daisyui" {
+  themes:
+    studioLight --default,
+    studioDark --prefersdark;
+}
 
 @plugin "daisyui/theme" {
-  name: "studioDark";
+  name: 'studioDark';
   default: false;
   prefersdark: true;
-  color-scheme: "dark";
-  /* Your Exact Colors */
+  color-scheme: 'dark';
   --color-base-100: oklch(22% 0.019 237.69);
   --color-base-200: oklch(20% 0.019 237.69);
   --color-base-300: oklch(18% 0.019 237.69);
   --color-base-content: oklch(77.383% 0.043 245.096);
-  --color-primary: #ff865b; /* Coral Brand Core */
+  --color-primary: oklch(74.703% 0.158 39.947);
   --color-primary-content: oklch(14.94% 0.031 39.947);
   --color-secondary: oklch(72.537% 0.177 2.72);
   --color-secondary-content: oklch(14.507% 0.035 2.72);
@@ -26,20 +30,19 @@
   --radius-selector: 1rem;
   --radius-field: 0.5rem;
   --radius-box: 1rem;
+  --border: 1px;
 }
 
 @plugin "daisyui/theme" {
-  name: "studioLight";
+  name: 'studioLight';
   default: true;
   prefersdark: false;
-  color-scheme: "light";
-  /* Inverted Base Surfaces for Light Mode Workspace */
+  color-scheme: 'light';
   --color-base-100: oklch(98% 0.01 237.69);
   --color-base-200: oklch(95% 0.01 237.69);
   --color-base-300: oklch(90% 0.015 237.69);
   --color-base-content: oklch(25% 0.02 237.69);
-  /* Brand Identity Stays EXACTLY The Same */
-  --color-primary: #ff865b;
+  --color-primary: oklch(74.703% 0.158 39.947);
   --color-primary-content: oklch(98% 0.01 39.947);
   --color-secondary: oklch(72.537% 0.177 2.72);
   --color-secondary-content: oklch(14.507% 0.035 2.72);
@@ -50,6 +53,7 @@
   --radius-selector: 1rem;
   --radius-field: 0.5rem;
   --radius-box: 1rem;
+  --border: 1px;
 }
 
 @custom-variant dark (&:where([data-theme=studioDark], [data-theme=studioDark] *));

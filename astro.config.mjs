@@ -7,8 +7,8 @@ import tailwindcss from '@tailwindcss/vite';
 
 // https://astro.build/config
 export default defineConfig({
+  site: "https://clippo-studio.web.app",
   integrations: [react(), sitemap()],
-
   vite: {
     plugins: [tailwindcss()],
   },
