@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://clippo.tools/sitemap-index.xml
+Sitemap: https://clippo-studio.web.app/sitemap-index.xml
