@@ -3,20 +3,27 @@ interface Props {
   title?: string;
   description?: string;
   image?: string;
+  imageAlt?: string;
+  locale?: string;
 }
 
 const {
-  title = "Fast Online Video Trimmer | Free & Secure",
-  description = "Clippo is the fast and easy way to trim videos for Social Media. Get your clips ready to share in seconds.",
+  title = "Free Online Video Trimmer - Cut MP4 & MOV",
+  description = "Trim video lengths instantly right inside your browser. 100% free, private, client-side video cutter with zero server uploads or watermarks.",
   image = "/og-image.png",
+  imageAlt = "Clippo online video trimmer interface preview showing quick and private video cutting",
+  locale = "en_US",
 } = Astro.props;
 
-const siteUrl = Astro.site ?? 'http://localhost:4321';
+const siteUrl = Astro.site ?? 'https://clippo-studio.web.app';
 const canonicalURL = new URL(Astro.url.pathname, siteUrl);
 const currentURL = Astro.url.href;
 
 // Convert relative image path to absolute URL required by WhatsApp/OpenGraph
 const imageURL = new URL(image, Astro.url.origin).href;
+
+// Full title combination (keeping overall length optimized)
+const fullTitle = `${title} | Clippo`;
 ---
 
 <meta charset="UTF-8" />
@@ -35,7 +42,7 @@ const imageURL = new URL(image, Astro.url.origin).href;
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 <meta name="apple-mobile-web-app-title" content="Clippo" />
 
-<!-- Theme Color for Mobile Browser Address Bar (Matches your Primary/Base Colors) -->
+<!-- Theme Color for Mobile Browser Address Bar -->
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ff865b" />
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#22262d" />
 
@@ -43,23 +50,34 @@ const imageURL = new URL(image, Astro.url.origin).href;
 
 <!-- Open Graph / WhatsApp -->
 <meta property="og:type" content="website" />
+<meta property="og:locale" content={locale} />
 <meta property="og:site_name" content="Clippo" />
-<meta property="og:title" content={title} />
+<meta property="og:title" content={fullTitle} />
 <meta property="og:description" content={description} />
+<meta property="og:url" content={currentURL} />
 <meta property="og:image" content={imageURL} />
 <meta property="og:image:secure_url" content={imageURL} />
 <meta property="og:image:type" content="image/png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
-<meta property="og:url" content={currentURL} />
+<meta property="og:image:alt" content={imageAlt} />
 
-<!-- Twitter -->
+<!-- Twitter / X -->
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content={title} />
+<meta name="twitter:title" content={fullTitle} />
 <meta name="twitter:description" content={description} />
 <meta name="twitter:image" content={imageURL} />
 
-<title>{title} | Clippo</title>
+<title>{fullTitle}</title>
+
+<!-- Structured Data (JSON-LD) -->
+<script type="application/ld+json" set:html={JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": fullTitle,
+  "description": description,
+  "url": currentURL
+})} />
 
 <!-- Core External Fonts & Icons -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
